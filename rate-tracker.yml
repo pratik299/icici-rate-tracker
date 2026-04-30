@@ -1,0 +1,51 @@
+name: ICICI HFC Rate Tracker
+
+on:
+  schedule:
+    # Runs every day at 9:00 AM IST (3:30 AM UTC)
+    - cron: "30 3 * * *"
+
+  # Also lets you trigger it manually from GitHub UI
+  workflow_dispatch:
+
+jobs:
+  track-rates:
+    runs-on: ubuntu-latest
+
+    # Give the workflow permission to commit rate history back to the repo
+    permissions:
+      contents: write
+
+    steps:
+      # 1. Check out your repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 3. Install dependencies
+      - name: Install dependencies
+        run: pip install requests
+
+      # 4. Run the scraper
+      - name: Run rate scraper
+        env:
+          GMAIL_SENDER:   ${{ secrets.GMAIL_SENDER }}
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+          NOTIFY_EMAIL:   ${{ secrets.NOTIFY_EMAIL }}
+        run: python scraper.py
+
+      # 5. Commit updated rate history back to the repo
+      - name: Commit updated rate history
+        run: |
+          git config user.name  "Rate Tracker Bot"
+          git config user.email "bot@github-actions"
+          git add data/rates_history.json
+          git diff --staged --quiet || git commit -m "📊 Rate check: $(date +'%Y-%m-%d')"
+          git push
